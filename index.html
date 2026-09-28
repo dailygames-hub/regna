@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>REGNA</title>
+<meta name="description" content="REGNA: una regina per riga, per colonna e per zona, senza che due si tocchino. Un puzzle di logica nuovo ogni giorno.">
+<meta name="theme-color" content="#ebe7df">
+<meta property="og:title" content="REGNA">
+<meta property="og:description" content="Una regina per riga, per colonna e per zona, senza che due si tocchino. Un puzzle nuovo ogni giorno.">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg">
+<style>
+@font-face{ font-family:"Gabarito"; src:url("fonts/Gabarito.woff2") format("woff2"); font-weight:400 900; font-style:normal; font-display:swap; }
+:root{
+  --bg:#ebe7df; --panel:#f7f4ee; --grout:#f7f4ee; --ink:#2a2622; --muted:#7a736a; --line:#d8d2c6;
+  --accent:#2a2622; --red:#c8362b; --gold:#c9932a;
+  --font:"Gabarito","Avenir Next","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+html,body{height:100%;margin:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--font); font-weight:500; font-size:16px; display:flex; flex-direction:column; align-items:center; overscroll-behavior:none; -webkit-tap-highlight-color:transparent}
+button{font-family:inherit; font-weight:inherit; color:inherit; cursor:pointer; touch-action:manipulation}
+button:focus-visible,a:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+a{color:var(--ink)}
+
+#app{width:100%; max-width:560px; height:100%; display:flex; flex-direction:column; padding:0 12px 8px}
+
+/* header */
+.top{display:flex; align-items:center; gap:8px; padding:10px 2px 6px; flex:0 0 auto}
+.logo{display:flex; align-items:center; gap:8px; font-weight:900; font-size:24px; letter-spacing:.04em; flex:0 0 auto}
+.logo svg{width:26px;height:26px;display:block}
+.meta{display:flex; align-items:baseline; gap:12px; padding:0 4px 2px; flex:0 0 auto}
+.meta b{font-weight:800; font-size:13px; letter-spacing:.08em}
+.meta span{font-size:13px; color:var(--muted); letter-spacing:.06em}
+.timer{font-weight:800; font-size:22px; font-variant-numeric:tabular-nums; letter-spacing:.02em; padding:0 6px; flex:0 0 auto; min-width:64px; text-align:right}
+.timer.paused{color:var(--muted)}
+.iconbtn{width:40px;height:40px;border:0;background:transparent;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.iconbtn:active{background:var(--line)}
+.iconbtn svg{width:24px;height:24px;fill:var(--ink)}
+
+/* board */
+.stage{flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; padding:4px 0}
+.boardwrap{width:min(100%, 520px, calc(100dvh - 270px)); aspect-ratio:1; background:var(--grout); border-radius:16px; padding:8px; box-shadow:0 1px 0 #fff inset, 0 10px 30px rgba(42,38,34,.12), 0 1px 3px rgba(42,38,34,.15)}
+svg.board{width:100%; height:100%; display:block; touch-action:none; user-select:none; -webkit-user-select:none; border-radius:10px; overflow:visible}
+svg.board rect.cell{transition:filter .15s}
+svg.board .mark{pointer-events:none}
+svg.board .x{stroke:var(--ink); stroke-width:7; stroke-linecap:round; opacity:.5}
+svg.board .crown{fill:var(--ink); transform-box:fill-box; transform-origin:center}
+svg.board .crown.bad{fill:var(--red); animation:pulse .9s ease-in-out infinite}
+svg.board .crown.pop{animation:crownpop .28s cubic-bezier(.34,1.56,.64,1)}
+svg.board .crown.win{animation:crownwin .7s cubic-bezier(.34,1.56,.64,1) both}
+svg.board rect.cell.win{animation:tilewin .8s ease-out both}
+@keyframes pulse{50%{opacity:.45}}
+@keyframes crownpop{0%{transform:scale(.4)}100%{transform:scale(1)}}
+@keyframes crownwin{0%{transform:scale(1)}40%{transform:scale(1.45) rotate(-8deg)}100%{transform:scale(1)}}
+@keyframes tilewin{0%{filter:brightness(1)}35%{filter:brightness(1.35)}100%{filter:brightness(1)}}
+@media (prefers-reduced-motion: reduce){svg.board .crown.pop,svg.board .crown.win,svg.board rect.cell.win,svg.board .crown.bad{animation:none}}
+
+/* controls */
+.controls{display:flex; justify-content:center; gap:10px; padding:10px 0 2px; flex:0 0 auto}
+.ctl{border:1.5px solid var(--line); background:var(--panel); color:var(--ink); border-radius:12px; padding:11px 18px; font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px}
+.ctl:active{background:var(--line)}
+.ctl:disabled{opacity:.4}
+.ctl svg{width:18px;height:18px;fill:currentColor}
+.foot{display:flex; justify-content:center; gap:22px; padding:8px 0 0; font-size:12px; color:var(--muted); letter-spacing:.06em}
+.foot button{border:0;background:transparent;padding:5px 4px;color:var(--muted);font-size:12px;letter-spacing:.06em}
+#adslot:empty{display:none}
+#adslot{width:100%; max-width:520px; margin:6px auto 0; text-align:center}
+
+/* toast */
+#toast{position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 66px); transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-weight:700; font-size:14px; opacity:0; pointer-events:none; transition:opacity .18s; z-index:50; white-space:nowrap}
+#toast.show{opacity:1}
+
+/* modals */
+.overlay{position:fixed; inset:0; background:rgba(42,38,34,.5); display:none; align-items:flex-end; justify-content:center; z-index:40; padding:calc(env(safe-area-inset-top,0px) + 14px) 0 0}
+.overlay.open{display:flex}
+.modal{width:100%; max-width:560px; max-height:100%; overflow:auto; background:var(--panel); color:var(--ink); border-radius:18px 18px 0 0; padding:14px 20px calc(20px + env(safe-area-inset-bottom,0px)); animation:up .3s cubic-bezier(.2,.9,.3,1.1)}
+@media (min-width:640px){ .overlay{align-items:center; padding:20px} .modal{border-radius:18px; max-height:92vh; padding-bottom:20px} }
+@keyframes up{from{transform:translateY(36px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.modal{animation:none}}
+.mhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+.mhead h2{margin:0; font-size:22px; font-weight:900; letter-spacing:.02em}
+.close{border:0;background:transparent;width:40px;height:40px;border-radius:8px;font-size:24px;font-weight:700;color:var(--muted)}
+.close:active{background:var(--line)}
+.modal h3{font-size:12px; font-weight:800; color:var(--muted); letter-spacing:.1em; margin:18px 0 8px}
+.modal p{margin:8px 0; line-height:1.5; font-size:16px}
+.modal p.small{font-size:14px; color:var(--muted)}
+.seg{display:flex; border:1.5px solid var(--line); border-radius:10px; overflow:hidden; background:var(--bg)}
+.seg button{flex:1; border:0; background:transparent; padding:11px 4px; font-weight:700; font-size:15px; color:var(--muted)}
+.seg button + button{border-left:1.5px solid var(--line)}
+.seg button.on{background:var(--ink); color:#fff}
+.row-opt{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0}
+.row-opt p{margin:0}
+.row-opt .small{margin-top:2px}
+.switch{width:52px; height:30px; border-radius:15px; border:0; background:var(--line); position:relative; flex:0 0 auto; transition:background .2s}
+.switch::after{content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch.on{background:var(--ink)} .switch.on::after{transform:translateX(22px)}
+.btn{width:100%; border:0; border-radius:12px; background:var(--ink); color:#fff; padding:14px; font-weight:800; font-size:16px; margin-top:10px}
+.btn.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line)}
+.btn:active{filter:brightness(.9)}
+.btn:disabled{opacity:.4}
+.two{display:flex; gap:10px}
+.center{text-align:center}
+.sizes{display:flex; gap:8px; margin-top:8px}
+.sizes button{flex:1; border:1.5px solid var(--line); background:transparent; border-radius:12px; padding:12px; font-weight:800; font-size:16px}
+.sizes button:active{background:var(--line)}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; text-align:center; margin-top:8px}
+.stats b{display:block; font-size:26px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums}
+.stats span{font-size:12px; color:var(--muted); line-height:1.2; display:block; margin-top:4px}
+.modal p.result-title{font-weight:900; font-size:26px; margin:6px 0 0; text-align:center}
+.modal p.result-time{font-weight:900; font-size:44px; line-height:1.1; text-align:center; margin:2px 0 6px; font-variant-numeric:tabular-nums; letter-spacing:.02em}
+.modal p.crowns{text-align:center; font-size:22px; letter-spacing:.1em; margin:0 0 6px}
+
+/* help */
+.ex{width:180px; margin:10px auto; background:var(--grout); border-radius:10px; padding:5px; box-shadow:0 2px 8px rgba(42,38,34,.12)}
+.ex svg{width:100%; height:auto; display:block}
+.legend{display:flex; flex-direction:column; gap:6px; margin:8px 0}
+.legend div{display:flex; align-items:center; gap:10px; font-size:15px}
+.legend i{display:inline-flex; width:30px; height:30px; border-radius:7px; background:#e0b352; align-items:center; justify-content:center; flex:0 0 auto; font-style:normal; font-weight:900; color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:var(--gold)" d="M3 18h18l1.5-10-5.3 4L12 5l-5.2 7-5.3-4z"/><rect x="3" y="19.5" width="18" height="2.2" rx="1" style="fill:var(--ink)"/></svg>REGNA</div>
+    <div style="flex:1 1 auto"></div>
+    <div class="timer" id="timer">0:00</div>
+    <button class="iconbtn" id="btnStats" aria-label="Statistiche"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18v-2H3zm2-3h3V9H5zm5 0h3V4h-3zm5 0h3v-7h-3z"/></svg></button>
+    <button class="iconbtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2.2H3zm0 4.9h18v2.2H3zm0 4.9h18V18H3z"/></svg></button>
+  </header>
+  <div class="meta"><b id="metaTop"></b><span id="metaBottom"></span></div>
+
+  <div class="stage"><div class="boardwrap"><svg class="board" id="board"></svg></div></div>
+
+  <div>
+    <div class="controls">
+      <button class="ctl" id="btnUndo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L6 7l6 5V9c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg><span data-t="undo"></span></button>
+      <button class="ctl" id="btnReset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.3 0 6 2.7 6 6 0 1-.3 2-.7 2.8l1.5 1.5C19.5 15 20 13.6 20 12c0-4.4-3.6-8-8-8zm0 14c-3.3 0-6-2.7-6-6 0-1 .3-2 .7-2.8L5.2 7.7C4.5 9 4 10.4 4 12c0 4.4 3.6 8 8 8v3l4-4-4-4v3z"/></svg><span data-t="reset"></span></button>
+    </div>
+    <div class="foot"><button id="btnHelpFoot"></button><button id="btnInfoFoot"></button></div>
+    <!-- Spazio pubblicità: incolla qui dentro il codice dell'annuncio -->
+    <div id="adslot"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div class="overlay" id="ovMenu"><div class="modal" role="dialog" aria-modal="true">
+  <div class="mhead"><h2 id="menuTitle"></h2><button class="close" data-close aria-label="Chiudi">×</button></div>
+  <h3 data-t="play"></h3>
+  <button class="btn" id="btnDaily"></button>
+  <p class="small" data-t="practiceH" style="margin-top:14px"></p>
+  <div class="sizes"><button data-size="7">7×7</button><button data-size="8">8×8</button><button data-size="9">9×9</button></div>
+  <h3 data-t="options"></h3>
+  <div class="row-opt"><div><p data-t="autoX"></p><p class="small" data-t="autoXDesc"></p></div><button class="switch" id="swAutoX" role="switch" aria-checked="false"></button></div>
+  <h3 data-t="langH"></h3>
+  <div class="seg" id="segLang"><button data-lang="it">Italiano</button><button data-lang="en">English</button></div>
+  <button class="btn ghost" id="btnHelp" style="margin-top:18px"></button>
+</div></div>
+
+<div class="overlay" id="ovHelp"><div class="modal" role="dialog" aria-modal="true">
+  <div class="mhead"><h2 id="helpTitle"></h2><button class="close" data-close aria-label="Chiudi">×</button></div>
+  <div id="helpBody"></div>
+  <button class="btn" data-close id="btnGotIt"></button>
+</div></div>
+
+<div class="overlay" id="ovInfo"><div class="modal" role="dialog" aria-modal="true">
+  <div class="mhead"><h2 id="infoTitle"></h2><button class="close" data-close aria-label="Chiudi">×</button></div>
+  <div id="infoBody"></div>
+</div></div>
+
+<div class="overlay" id="ovStats"><div class="modal" role="dialog" aria-modal="true">
+  <div class="mhead"><h2 id="statsTitle"></h2><button class="close" data-close aria-label="Chiudi">×</button></div>
+  <div id="resultBox"></div>
+  <div class="stats" id="statsGrid"></div>
+  <p class="small center" id="nextWord" style="margin-top:16px"></p>
+  <div class="two"><button class="btn" id="btnShare"></button><button class="btn ghost" id="btnNew"></button></div>
+</div></div>
+
+<script src="puzzles.js"></script>
+<script>
+/* ================= CONFIG ================= */
+const NAME = "REGNA";
+const SITE_URL = "https://dailygames-hub.github.io/regna/";
+const EPOCH = Date.UTC(2026, 8, 27);  // 27 settembre 2026 = giorno 1 (una domenica: il calendario dei puzzle parte da lì)
+const LS = "regna:";
+const PUZZLES = window.REGNA_PUZZLES;
+const PALETTE = ["#d9785a","#e0b352","#9aa85c","#4f9aa0","#7d8fb0","#a26a9c","#e6cfa0","#d99aa0","#8fbf9f"];
+const HUE = [18, 42, 75, 185, 220, 300, 40, 355, 140]; // per assegnare colori diversi a zone vicine
+const EXAMPLE = { n:5, r:"0000000001220014203340033", s:"24130" };
+
+/* ================= I18N ================= */
+const T = {
+  it: {
+    day:"GIORNO", practice:"ALLENAMENTO", band:{ easy:"FACILE", "easy+":"FACILE +", medium:"MEDIA", "medium+":"MEDIA +", hard:"DIFFICILE" },
+    menu:"Menu", play:"GIOCA", daily:"Puzzle del giorno", practiceH:"Allenamento con un puzzle casuale:", options:"OPZIONI", autoX:"X automatiche", autoXDesc:"Quando piazzi una regina, le X si mettono da sole sulle caselle che esclude.",
+    langH:"LINGUA", howto:"Come si gioca", info:"Info e privacy", gotIt:"Ho capito", undo:"Annulla", reset:"Ricomincia",
+    stats:"Statistiche", solved:"Risolti", avg:"Tempo medio", best:"Migliore", streak:"Serie", next:"Prossimo puzzle del giorno tra", share:"Condividi", newWord:"Nuovo puzzle",
+    won:"Risolto!", resetDone:"Griglia svuotata", newReady:"Nuovo puzzle pronto", copied:"Risultato copiato", copyFail:"Copia non riuscita", paused:"In pausa",
+    shareDay:n=>`giorno ${n}`, sharePractice:"allenamento",
+    help:`
+      <p>Metti una regina in ogni riga, in ogni colonna e in ogni zona colorata. Due regine non possono toccarsi, nemmeno in diagonale.</p>
+      <div class="legend">
+        <div><i>×</i>Un tocco su una casella mette una X: lì la regina non va.</div>
+        <div><i>♛</i>Un secondo tocco mette la regina. Un terzo svuota la casella.</div>
+        <div><i>↔</i>Trascina il dito per mettere (o togliere) tante X in fila.</div>
+      </div>
+      <p>Esempio risolto, 5×5:</p>
+      <div class="ex" id="exBoard"></div>
+      <p class="small">Ogni riga, ogni colonna e ogni zona ha esattamente una regina, e nessuna regina è a contatto con un'altra. Le regine in conflitto diventano rosse, così vedi subito l'errore.</p>
+      <p class="small">Il timer parte al primo tocco e si ferma quando risolvi. Ogni puzzle ha una sola soluzione e si risolve sempre con la logica, senza tirare a indovinare: la difficoltà cresce durante la settimana, dal lunedì alla domenica.</p>`,
+    infoBody:`
+      <p>${"REGNA"} è un gioco di logica gratuito. Il puzzle del giorno è lo stesso per tutti e cambia a mezzanotte; l'allenamento propone puzzle casuali senza limiti.</p>
+      <h3>PRIVACY</h3>
+      <p class="small">Nessun account e nessun cookie di tracciamento. Progressi, statistiche e impostazioni restano nel tuo browser (localStorage) e non vengono inviati a nessun server. Informativa completa: <a href="../privacy.html">privacy</a>.</p>
+      <h3>CREDITI</h3>
+      <p class="small">Meccanica del genere di puzzle "Star Battle" a una stella. I puzzle sono generati e verificati dal progetto stesso (unicità della soluzione e risolvibilità logica). Carattere Gabarito di Naipe Foundry, licenza SIL OFL.</p>`
+  },
+  en: {
+    day:"DAY", practice:"PRACTICE", band:{ easy:"EASY", "easy+":"EASY +", medium:"MEDIUM", "medium+":"MEDIUM +", hard:"HARD" },
+    menu:"Menu", play:"PLAY", daily:"Puzzle of the day", practiceH:"Practice with a random puzzle:", options:"OPTIONS", autoX:"Automatic X's", autoXDesc:"When you place a queen, X's are added on the cells it rules out.",
+    langH:"LANGUAGE", howto:"How to play", info:"Info & privacy", gotIt:"Got it", undo:"Undo", reset:"Restart",
+    stats:"Statistics", solved:"Solved", avg:"Average", best:"Best", streak:"Streak", next:"Next puzzle of the day in", share:"Share", newWord:"New puzzle",
+    won:"Solved!", resetDone:"Board cleared", newReady:"New puzzle ready", copied:"Result copied", copyFail:"Copy failed", paused:"Paused",
+    shareDay:n=>`day ${n}`, sharePractice:"practice",
+    help:`
+      <p>Place one queen in every row, every column and every coloured zone. Two queens can never touch, not even diagonally.</p>
+      <div class="legend">
+        <div><i>×</i>Tap a cell once to mark an X: no queen there.</div>
+        <div><i>♛</i>Tap again to place a queen. A third tap clears the cell.</div>
+        <div><i>↔</i>Drag your finger to mark (or clear) many X's in a row.</div>
+      </div>
+      <p>Solved example, 5×5:</p>
+      <div class="ex" id="exBoard"></div>
+      <p class="small">Every row, column and zone has exactly one queen, and no queen touches another. Conflicting queens turn red so you see the mistake right away.</p>
+      <p class="small">The timer starts at your first tap and stops when you solve. Every puzzle has a single solution and can always be solved by logic alone: difficulty grows through the week, from Monday to Sunday.</p>`,
+    infoBody:`
+      <p>${"REGNA"} is a free logic game. The puzzle of the day is the same for everyone and changes at midnight; practice mode offers unlimited random puzzles.</p>
+      <h3>PRIVACY</h3>
+      <p class="small">No account and no tracking cookies. Progress, statistics and settings stay in your browser (localStorage) and are never sent to a server. Full notice: <a href="../privacy.html">privacy</a>.</p>
+      <h3>CREDITS</h3>
+      <p class="small">A one-star "Star Battle" puzzle. Puzzles are generated and verified by the project itself (unique solution, solvable by logic). Gabarito typeface by Naipe Foundry, SIL OFL license.</p>`
+  }
+};
+function tr(k){ const v = T[settings.lang][k]; return v === undefined ? T.it[k] : v; }
+
+/* ================= UTIL ================= */
+function lsGet(k, d){ try { const v = localStorage.getItem(LS + k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(LS + k, JSON.stringify(v)); } catch(e){} }
+function todayNumber(){ const n = new Date(); const d = Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); return Math.floor((d - EPOCH) / 86400000) + 1; }
+function msToMidnight(){ const n = new Date(); const m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 0); return m - n; }
+function fmt(ms){ const s = Math.floor(ms / 1000); const m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; }
+function dailyPuzzle(n){ return PUZZLES[((n - 1) % PUZZLES.length + PUZZLES.length) % PUZZLES.length]; }
+function randomPuzzle(size){ const pool = PUZZLES.filter(p => p.n === size); return pool[Math.floor(Math.random() * pool.length)]; }
+
+/* assign palette colours so that neighbouring zones get distant hues */
+function colorZones(n, region){
+  const adj = Array.from({length:n}, () => new Set());
+  for (let r=0;r<n;r++) for (let c=0;c<n;c++){
+    const z = region[r][c];
+    if (c+1<n && region[r][c+1] !== z){ adj[z].add(region[r][c+1]); adj[region[r][c+1]].add(z); }
+    if (r+1<n && region[r+1][c] !== z){ adj[z].add(region[r+1][c]); adj[region[r+1][c]].add(z); }
+  }
+  const color = Array(n).fill(-1); const usedCount = Array(PALETTE.length).fill(0);
+  const order = [...Array(n).keys()].sort((a, b) => adj[b].size - adj[a].size);
+  for (const z of order){
+    let best = -1, bestScore = -1;
+    for (let k=0;k<PALETTE.length;k++){
+      if (usedCount[k]) continue;
+      let minDist = 999;
+      for (const nb of adj[z]) if (color[nb] >= 0){ const d = Math.abs(HUE[k] - HUE[color[nb]]); minDist = Math.min(minDist, Math.min(d, 360 - d)); }
+      if (minDist > bestScore){ bestScore = minDist; best = k; }
+    }
+    color[z] = best; usedCount[best] = 1;
+  }
+  return color;
+}
+
+/* ================= STATE ================= */
+const settings = Object.assign({ lang:"it", autoX:false, seenHelp:false }, lsGet("settings", {}));
+if (!T[settings.lang]) settings.lang = "it";
+let game = null, countdownTimer = null, ticker = null;
+function saveSettings(){ lsSet("settings", settings); }
+function statsKey(g){ return `stats:${g.kind}`; }
+
+function parse(p){
+  const n = p.n; const region = [], sol = [];
+  for (let r=0;r<n;r++){ region.push([]); for (let c=0;c<n;c++) region[r].push(+p.r[r*n+c]); sol.push(+p.s[r]); }
+  return { n, region, sol, band: p.band };
+}
+function buildGame(kind, n, p){
+  const { n: size, region, sol, band } = parse(p);
+  const zones = Array.from({length:size}, () => []);
+  for (let r=0;r<size;r++) for (let c=0;c<size;c++) zones[region[r][c]].push([r, c]);
+  return { kind, n, size, region, zones, sol, band, colors: colorZones(size, region), cells: Array(size*size).fill(0), undo:[], elapsed:0, running:false, started:false, solved:false, startedAt:0 };
+}
+function newDaily(showResult){
+  stopTicker();
+  const n = todayNumber();
+  game = buildGame("daily", n, dailyPuzzle(n));
+  const saved = lsGet(`daily:${n}`, null);
+  if (saved && Array.isArray(saved.cells) && saved.cells.length === game.size*game.size){ game.cells = saved.cells; game.elapsed = saved.elapsed || 0; game.solved = !!saved.solved; game.started = game.elapsed > 0 || game.cells.some(x => x); }
+  render(); updateHeader(); updateTimer();
+  if (showResult && game.solved) setTimeout(openStats, 400);
+}
+function newPractice(size){ stopTicker(); game = buildGame("practice", 0, randomPuzzle(size)); render(); updateHeader(); updateTimer(); toast(tr("newReady")); }
+function persist(){ if (game.kind === "daily") lsSet(`daily:${game.n}`, { cells: game.cells, elapsed: currentElapsed(), solved: game.solved }); }
+
+/* ================= TIMER ================= */
+function currentElapsed(){ return game.elapsed + (game.running ? Date.now() - game.startedAt : 0); }
+function startTimer(){ if (game.solved || game.running) return; game.running = true; game.started = true; game.startedAt = Date.now(); if (!ticker) ticker = setInterval(updateTimer, 250); updateTimer(); }
+function pauseTimer(){ if (!game.running) return; game.elapsed += Date.now() - game.startedAt; game.running = false; persist(); updateTimer(); }
+function stopTicker(){ if (ticker){ clearInterval(ticker); ticker = null; } if (game && game.running){ game.elapsed += Date.now() - game.startedAt; game.running = false; } }
+function updateTimer(){ const el = document.getElementById("timer"); el.textContent = fmt(currentElapsed()); el.classList.toggle("paused", !game.running && game.started && !game.solved); }
+document.addEventListener("visibilitychange", () => { if (document.hidden) pauseTimer(); });
+
+/* ================= RENDER ================= */
+const boardEl = document.getElementById("board");
+const U = 100, INSET = 2, R = 12;
+function crownPath(cx, cy, s){ /* s = half width */
+  const w = s, h = s * .8;
+  return `M${cx-w} ${cy+h*.55} L${cx-w*.72} ${cy-h*.35} L${cx-w*.33} ${cy+h*.05} L${cx} ${cy-h} L${cx+w*.33} ${cy+h*.05} L${cx+w*.72} ${cy-h*.35} L${cx+w} ${cy+h*.55} Z M${cx-w} ${cy+h*.72} h${2*w} v${h*.28} h${-2*w} Z`;
+}
+function boardSVG(size, region, colors, cells, sol, opts){
+  const o = opts || {}; const N = size * U;
+  let s = "";
+  for (let r=0;r<size;r++) for (let c=0;c<size;c++){
+    const fill = PALETTE[colors[region[r][c]]];
+    s += `<rect class="cell" data-r="${r}" data-c="${c}" x="${c*U+INSET}" y="${r*U+INSET}" width="${U-2*INSET}" height="${U-2*INSET}" rx="${R}" fill="${fill}"/>`;
+  }
+  // thick grout between zones
+  let path = "";
+  for (let r=0;r<size;r++) for (let c=0;c<size;c++){
+    if (c+1<size && region[r][c] !== region[r][c+1]) path += `M${(c+1)*U} ${r*U} v${U} `;
+    if (r+1<size && region[r][c] !== region[r+1][c]) path += `M${c*U} ${(r+1)*U} h${U} `;
+  }
+  s += `<path d="${path}" style="stroke:var(--grout)" stroke-width="15" stroke-linecap="round" fill="none" pointer-events="none"/>`;
+  // marks
+  for (let r=0;r<size;r++) for (let c=0;c<size;c++){
+    const v = o.solution ? (sol[r] === c ? 2 : 0) : cells[r*size+c];
+    const cx = c*U + U/2, cy = r*U + U/2;
+    if (v === 1) s += `<g class="mark"><path class="x" d="M${cx-17} ${cy-17} L${cx+17} ${cy+17} M${cx+17} ${cy-17} L${cx-17} ${cy+17}"/></g>`;
+    else if (v === 2) s += `<path class="mark crown${o.bad && o.bad.has(r*size+c) ? " bad" : ""}${o.popAt === r*size+c ? " pop" : ""}" data-i="${r*size+c}" d="${crownPath(cx, cy, 30)}"/>`;
+  }
+  return { html:s, N };
+}
+function conflicts(){
+  const q = []; const bad = new Set();
+  for (let i=0;i<game.cells.length;i++) if (game.cells[i] === 2) q.push(i);
+  for (let a=0;a<q.length;a++) for (let b=a+1;b<q.length;b++){
+    const r1 = Math.floor(q[a]/game.size), c1 = q[a]%game.size, r2 = Math.floor(q[b]/game.size), c2 = q[b]%game.size;
+    if (r1 === r2 || c1 === c2 || game.region[r1][c1] === game.region[r2][c2] || (Math.abs(r1-r2) <= 1 && Math.abs(c1-c2) <= 1)){ bad.add(q[a]); bad.add(q[b]); }
+  }
+  return { queens: q, bad };
+}
+let popAt = -1, lastQueen = 0;
+function render(){
+  const { bad } = conflicts();
+  const { html, N } = boardSVG(game.size, game.region, game.colors, game.cells, game.sol, { bad, popAt });
+  boardEl.setAttribute("viewBox", `0 0 ${N} ${N}`);
+  boardEl.innerHTML = html;
+  popAt = -1;
+  document.getElementById("btnUndo").disabled = !game.undo.length || game.solved;
+  document.getElementById("btnReset").disabled = game.solved || !game.cells.some(x => x);
+}
+function applyStrings(){
+  document.documentElement.lang = settings.lang;
+  document.querySelectorAll("[data-t]").forEach(el => el.textContent = tr(el.dataset.t));
+  document.getElementById("menuTitle").textContent = tr("menu");
+  document.getElementById("btnDaily").textContent = tr("daily");
+  document.getElementById("btnHelp").textContent = tr("howto");
+  document.getElementById("btnHelpFoot").textContent = tr("howto");
+  document.getElementById("btnInfoFoot").textContent = tr("info");
+  document.getElementById("helpTitle").textContent = tr("howto");
+  document.getElementById("infoTitle").textContent = tr("info");
+  document.getElementById("btnGotIt").textContent = tr("gotIt");
+  document.getElementById("btnShare").textContent = tr("share");
+  document.getElementById("btnNew").textContent = tr("newWord");
+  const sw = document.getElementById("swAutoX"); sw.classList.toggle("on", settings.autoX); sw.setAttribute("aria-checked", settings.autoX);
+  document.querySelectorAll("#segLang button").forEach(b => b.classList.toggle("on", b.dataset.lang === settings.lang));
+}
+function updateHeader(){
+  document.getElementById("metaTop").textContent = game.kind === "daily" ? `${tr("day")} ${game.n}` : tr("practice");
+  document.getElementById("metaBottom").textContent = `${game.size}×${game.size}  ${tr("band")[game.band] || ""}`;
+}
+
+/* ================= INPUT ================= */
+function cellFromEvent(e){
+  const rect = boardEl.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * game.size, y = (e.clientY - rect.top) / rect.height * game.size;
+  const c = Math.floor(x), r = Math.floor(y);
+  if (r < 0 || c < 0 || r >= game.size || c >= game.size) return -1;
+  return r * game.size + c;
+}
+function snapshot(){ game.undo.push(game.cells.slice()); if (game.undo.length > 300) game.undo.shift(); }
+function afterChange(){
+  render(); persist();
+  const { queens, bad } = conflicts();
+  if (queens.length === game.size && bad.size === 0) win();
+}
+function autoX(i){
+  const r = Math.floor(i / game.size), c = i % game.size;
+  const mark = (rr, cc) => { if (rr < 0 || cc < 0 || rr >= game.size || cc >= game.size) return; const j = rr*game.size+cc; if (game.cells[j] === 0) game.cells[j] = 1; };
+  for (let k=0;k<game.size;k++){ mark(r, k); mark(k, c); }
+  game.zones[game.region[r][c]].forEach(([rr, cc]) => mark(rr, cc));
+  for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) mark(r+dr, c+dc);
+}
+function tap(i){
+  if (game.solved) return;
+  startTimer(); snapshot();
+  const v = game.cells[i];
+  game.cells[i] = (v + 1) % 3;
+  if (game.cells[i] === 2){ popAt = i; lastQueen = i; if (settings.autoX) autoX(i); }
+  afterChange();
+}
+let gesture = null;
+boardEl.addEventListener("pointerdown", e => {
+  if (game.solved) return;
+  const i = cellFromEvent(e); if (i < 0) return;
+  boardEl.setPointerCapture(e.pointerId);
+  gesture = { start: i, last: i, dragged: false, mode: null };
+  e.preventDefault();
+});
+boardEl.addEventListener("pointermove", e => {
+  if (!gesture) return;
+  const i = cellFromEvent(e); if (i < 0 || i === gesture.last) return;
+  if (!gesture.dragged){
+    gesture.dragged = true; startTimer(); snapshot();
+    gesture.mode = game.cells[gesture.start] === 1 ? 0 : 1;   // parte da una X: cancella; altrimenti mette X
+    if (gesture.mode === 1 ? game.cells[gesture.start] === 0 : game.cells[gesture.start] === 1) game.cells[gesture.start] = gesture.mode;
+  }
+  if (gesture.mode === 1 ? game.cells[i] === 0 : game.cells[i] === 1){ game.cells[i] = gesture.mode; render(); }
+  gesture.last = i;
+});
+function endGesture(e){
+  if (!gesture) return;
+  const g = gesture; gesture = null;
+  if (!g.dragged) tap(g.start); else afterChange();
+}
+boardEl.addEventListener("pointerup", endGesture);
+boardEl.addEventListener("pointercancel", endGesture);
+document.getElementById("btnUndo").addEventListener("click", () => { if (!game.undo.length || game.solved) return; game.cells = game.undo.pop(); render(); persist(); });
+document.getElementById("btnReset").addEventListener("click", () => { if (game.solved) return; snapshot(); game.cells.fill(0); render(); persist(); toast(tr("resetDone")); });
+
+/* ================= WIN ================= */
+function win(){
+  game.solved = true; pauseTimer(); persist(); recordStats();
+  const last = lastQueen;
+  const crowns = [...boardEl.querySelectorAll(".crown")];
+  crowns.forEach((el, k) => { el.classList.remove("bad", "pop"); el.style.animationDelay = `${k*70}ms`; el.classList.add("win"); });
+  const lr = Math.floor(last / game.size), lc = last % game.size;
+  boardEl.querySelectorAll("rect.cell").forEach(el => { const d = Math.hypot(+el.dataset.r - lr, +el.dataset.c - lc); el.style.animationDelay = `${d*60}ms`; el.classList.add("win"); });
+  document.getElementById("btnUndo").disabled = true; document.getElementById("btnReset").disabled = true;
+  setTimeout(openStats, 1400);
+}
+
+/* ================= TOAST & MODALS ================= */
+let toastT = null;
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1600); }
+function openModal(id){ document.getElementById(id).classList.add("open"); pauseTimer(); }
+function closeAll(){ document.querySelectorAll(".overlay.open").forEach(o => o.classList.remove("open")); if (countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; } if (game.started && !game.solved) startTimer(); }
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeAll));
+document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o) closeAll(); }));
+document.getElementById("btnMenu").addEventListener("click", () => { applyStrings(); openModal("ovMenu"); });
+document.getElementById("segLang").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; settings.lang = b.dataset.lang; saveSettings(); applyStrings(); updateHeader(); });
+document.getElementById("swAutoX").addEventListener("click", () => { settings.autoX = !settings.autoX; saveSettings(); applyStrings(); });
+document.getElementById("btnDaily").addEventListener("click", () => { closeAll(); newDaily(); });
+document.querySelectorAll(".sizes button").forEach(b => b.addEventListener("click", () => { closeAll(); newPractice(+b.dataset.size); }));
+document.getElementById("btnHelp").addEventListener("click", () => { closeAll(); openHelp(); });
+document.getElementById("btnHelpFoot").addEventListener("click", openHelp);
+document.getElementById("btnInfoFoot").addEventListener("click", () => { applyStrings(); document.getElementById("infoBody").innerHTML = tr("infoBody"); openModal("ovInfo"); });
+function openHelp(){
+  applyStrings();
+  document.getElementById("helpBody").innerHTML = tr("help");
+  const ex = parse(EXAMPLE); const { html, N } = boardSVG(ex.n, ex.region, colorZones(ex.n, ex.region), [], ex.sol, { solution:true });
+  document.getElementById("exBoard").innerHTML = `<svg viewBox="0 0 ${N} ${N}">${html}</svg>`;
+  openModal("ovHelp");
+}
+
+/* ================= STATS ================= */
+function loadStats(){ return Object.assign({ solved:0, total:0, best:0, streak:0, bestStreak:0, lastDay:0 }, lsGet(statsKey(game), {})); }
+function recordStats(){
+  const s = loadStats(); const t = currentElapsed();
+  s.solved++; s.total += t; if (!s.best || t < s.best) s.best = t;
+  if (game.kind === "daily"){ s.streak = (s.lastDay === game.n - 1) ? s.streak + 1 : 1; s.lastDay = game.n; } else s.streak++;
+  s.bestStreak = Math.max(s.bestStreak, s.streak); lsSet(statsKey(game), s);
+}
+function openStats(){
+  applyStrings();
+  const s = loadStats(); const rb = document.getElementById("resultBox");
+  rb.innerHTML = game.solved ? `<p class="result-title">${tr("won")}</p><p class="result-time">${fmt(currentElapsed())}</p><p class="crowns">${"♛".repeat(game.size)}</p>` : "";
+  document.getElementById("statsGrid").innerHTML = `<div><b>${s.solved}</b><span>${tr("solved")}</span></div><div><b>${s.solved ? fmt(s.total / s.solved) : "–"}</b><span>${tr("avg")}</span></div><div><b>${s.best ? fmt(s.best) : "–"}</b><span>${tr("best")}</span></div><div><b>${s.streak}</b><span>${tr("streak")}</span></div>`;
+  document.getElementById("statsTitle").textContent = `${game.kind === "daily" ? tr("stats") : tr("practice").charAt(0) + tr("practice").slice(1).toLowerCase()}`;
+  document.getElementById("btnShare").disabled = !game.solved;
+  const nw = document.getElementById("nextWord");
+  if (countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+  const tick = () => { const ms = msToMidnight(); const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000), sec = Math.floor(ms%60000/1000); nw.innerHTML = `${tr("next")} <b>${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}</b>`; };
+  tick(); countdownTimer = setInterval(tick, 1000);
+  openModal("ovStats");
+}
+document.getElementById("btnStats").addEventListener("click", openStats);
+document.getElementById("btnNew").addEventListener("click", () => { closeAll(); newPractice(game.size); });
+
+/* ================= SHARE ================= */
+function shareText(){
+  const what = game.kind === "daily" ? tr("shareDay")(game.n) : tr("sharePractice");
+  return `${NAME} ${what}, ${game.size}×${game.size}, ${fmt(currentElapsed())}\n${"👑".repeat(game.size)}${SITE_URL ? "\n" + SITE_URL : ""}`;
+}
+document.getElementById("btnShare").addEventListener("click", async () => {
+  const text = shareText();
+  try { if (navigator.share){ await navigator.share({ text }); return; } } catch(e){ if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(text); toast(tr("copied")); }
+  catch(e){ const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); toast(tr("copied")); } catch(err){ toast(tr("copyFail")); } ta.remove(); }
+});
+
+/* ================= START ================= */
+applyStrings();
+newDaily(true);
+if (!settings.seenHelp){ settings.seenHelp = true; saveSettings(); openHelp(); }
+</script>
+</body>
+</html>

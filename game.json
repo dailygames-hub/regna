@@ -1,0 +1,15 @@
+{
+  "name": "REGNA",
+  "description": {
+    "it": "Una regina in ogni riga, colonna e zona colorata, senza che due si tocchino. Puzzle di pura logica con soluzione unica: la difficoltà cresce da lunedì a domenica. Timer, allenamento e nessuna lingua richiesta.",
+    "en": "One queen in every row, column and coloured zone, and no two touching. Pure-logic puzzles with a single solution: difficulty grows from Monday to Sunday. Timer, practice mode, no language needed."
+  },
+  "accent": "#c9932a",
+  "languages": [
+    "it",
+    "en"
+  ],
+  "daily": true,
+  "preview": "preview.svg",
+  "order": 5
+}
